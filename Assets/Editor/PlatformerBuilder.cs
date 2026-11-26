@@ -39,13 +39,16 @@ public static class PlatformerBuilder
     private static readonly Color PoleColor = new Color(0.85f, 0.85f, 0.85f);
     private static readonly Color FinishFlagColor = new Color(0.90f, 0.15f, 0.15f);
     private static readonly Color ButtonColor = new Color(0.20f, 0.62f, 0.32f);
+    private static readonly Color EnemyColor = new Color(0.55f, 0.30f, 0.75f);
+    private static readonly Color FarHillColor = new Color(0.62f, 0.82f, 0.78f);
+    private static readonly Color NearHillColor = new Color(0.47f, 0.74f, 0.45f);
 
     private static Sprite square, rounded, circle, triangle;
     private static Font font;
 
     private class Prefabs
     {
-        public GameObject Player, Coin, Heart, Spike, Checkpoint, Finish;
+        public GameObject Player, Coin, Heart, Spike, Checkpoint, Finish, Enemy;
     }
 
     [MenuItem("Platformer/Собрать игру (сцены, префабы, анимации)", priority = 0)]
@@ -297,7 +300,33 @@ public static class PlatformerBuilder
             Spike = CreateSpikePrefab(),
             Checkpoint = CreateCheckpointPrefab(),
             Finish = CreateFinishPrefab(),
+            Enemy = CreateEnemyPrefab(noFriction),
         };
+    }
+
+    private static GameObject CreateEnemyPrefab(PhysicsMaterial2D noFriction)
+    {
+        var root = new GameObject("Enemy");
+
+        var rb = root.AddComponent<Rigidbody2D>();
+        rb.gravityScale = 3f;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+        var collider = root.AddComponent<BoxCollider2D>();
+        collider.size = new Vector2(0.75f, 0.55f);
+        collider.edgeRadius = 0.03f; // чуть скруглённые углы — не цепляется за стыки
+        collider.sharedMaterial = noFriction;
+
+        // Слизень: фиолетовое тело и глаз (смотрит вправо, скрипт разворачивает Visual).
+        Transform visual = CreateChild("Visual", root.transform);
+        AddSprite("Body", visual, rounded, EnemyColor, Vector2.zero, new Vector2(0.85f, 0.62f), 8);
+        AddSprite("Eye", visual, circle, Color.white, new Vector2(0.18f, 0.08f), new Vector2(0.22f, 0.22f), 9);
+        AddSprite("Pupil", visual, circle, new Color(0.1f, 0.1f, 0.15f), new Vector2(0.22f, 0.08f), new Vector2(0.1f, 0.1f), 10);
+
+        var enemy = root.AddComponent<Enemy>();
+        SetRef(enemy, "visual", visual);
+        return SavePrefab(root, "Enemy");
     }
 
     private static GameObject CreatePlayerPrefab(AnimatorController animatorController, PhysicsMaterial2D noFriction)
@@ -473,6 +502,7 @@ public static class PlatformerBuilder
                     case 'K': Place(prefabs.Checkpoint, items, pos); break;
                     case 'F': Place(prefabs.Finish, items, pos); break;
                     case '^': Place(prefabs.Spike, hazards, pos); break;
+                    case 'E': Place(prefabs.Enemy, hazards, pos); break;
                 }
             }
         }
@@ -491,7 +521,7 @@ public static class PlatformerBuilder
         CreateWall(level, -1f, rows);
         CreateWall(level, cols, rows);
 
-        CreateClouds(decor, cols, 7 + cols);
+        CreateBackground(decor, cols, rows);
 
         // 4) Игрок, камера, GameManager и интерфейс.
         GameObject player = Place(prefabs.Player, null, playerStart);
@@ -532,13 +562,16 @@ public static class PlatformerBuilder
 
         Canvas canvas = CreateCanvas();
         Transform ct = canvas.transform;
+        Text records = CreateText(ct, "RecordsText", "", 32, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f),
+            new Vector2(0f, -230f), new Vector2(1400f, 100f), CoinShineColor);
+        SetRef(menu, "recordsText", records);
         CreateText(ct, "Title", "Собиратель монет", 120, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f),
             new Vector2(0f, 280f), new Vector2(1600f, 180f), CoinColor);
         CreateText(ct, "Subtitle", "2D-платформер", 44, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f),
             new Vector2(0f, 170f), new Vector2(1200f, 70f), Color.white);
         CreateButton(ct, "PlayButton", "Играть", new Vector2(0f, 20f), menu.Play);
         CreateButton(ct, "QuitButton", "Выход", new Vector2(0f, -100f), menu.Quit);
-        CreateText(ct, "Controls", "A/D или ←/→ — бег     Пробел / W — прыжок     Esc — в меню", 30,
+        CreateText(ct, "Controls", "A/D или ←/→ — бег     Пробел / W — прыжок (держи — выше)     Esc — пауза", 30,
             TextAnchor.MiddleCenter, new Vector2(0.5f, 0f), new Vector2(0f, 40f), new Vector2(1800f, 50f), Color.white);
 
         EditorSceneManager.SaveScene(scene, ScenePath("MainMenu"));
@@ -557,8 +590,18 @@ public static class PlatformerBuilder
             new Vector2(40f, -95f), new Vector2(800f, 70f), new Color(1f, 0.45f, 0.5f));
         Text levelName = CreateText(ct, "LevelText", "Уровень", 44, TextAnchor.UpperCenter, new Vector2(0.5f, 1f),
             new Vector2(0f, -30f), new Vector2(800f, 70f), Color.white);
-        CreateText(ct, "HintText", "A/D — бег   Пробел — прыжок   Esc — меню", 28, TextAnchor.LowerCenter,
+        Text timer = CreateText(ct, "TimerText", "Время: 0:00.0", 44, TextAnchor.UpperRight, new Vector2(1f, 1f),
+            new Vector2(-40f, -30f), new Vector2(600f, 70f), Color.white);
+        CreateText(ct, "HintText", "A/D — бег   Пробел — прыжок   Esc — пауза", 28, TextAnchor.LowerCenter,
             new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(1600f, 50f), new Color(1f, 1f, 1f, 0.8f));
+
+        // Экран паузы.
+        GameObject pause = CreatePanel(ct, "PausePanel", new Color(0f, 0f, 0.1f, 0.7f));
+        CreateText(pause.transform, "Title", "Пауза", 110, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f),
+            new Vector2(0f, 230f), new Vector2(1400f, 160f), Color.white);
+        CreateButton(pause.transform, "ResumeButton", "Продолжить", new Vector2(0f, 60f), gm.Resume);
+        CreateButton(pause.transform, "RestartButton", "Начать заново", new Vector2(0f, -60f), gm.RestartLevel);
+        CreateButton(pause.transform, "MenuButton", "В главное меню", new Vector2(0f, -180f), gm.GoToMainMenu);
 
         // Экран Game Over.
         GameObject gameOver = CreatePanel(ct, "GameOverPanel", new Color(0.15f, 0f, 0f, 0.8f));
@@ -589,7 +632,10 @@ public static class PlatformerBuilder
         SetRef(ui, "winInfoText", winInfo);
         SetRef(ui, "nextLevelButton", next.gameObject);
         SetRef(ui, "playAgainButton", again.gameObject);
+        SetRef(ui, "timerText", timer);
+        SetRef(ui, "pausePanel", pause);
 
+        pause.SetActive(false);
         gameOver.SetActive(false);
         win.SetActive(false);
         return ui;
@@ -656,6 +702,38 @@ public static class PlatformerBuilder
         wall.transform.position = new Vector3(x, 0f, 0f);
         var collider = wall.AddComponent<BoxCollider2D>();
         collider.size = new Vector2(1f, rows * 4f);
+    }
+
+    // Фон из трёх слоёв с параллаксом: дальние холмы, ближние холмы, облака.
+    private static void CreateBackground(Transform parent, int cols, int rows)
+    {
+        float groundTop = -rows + 2.5f; // верхний край земли (нижние 2 ряда карты — земля)
+        var random = new System.Random(cols);
+
+        Transform far = CreateParallaxLayer("FarHills (параллакс 0.8)", parent, 0.8f);
+        for (float x = -15f; x < cols + 15f; x += 7 + random.Next(5))
+        {
+            float size = 9 + random.Next(6);
+            AddSprite("Hill", far, circle, FarHillColor, new Vector2(x, groundTop - 1f), new Vector2(size, size * 0.75f), -30);
+        }
+
+        Transform near = CreateParallaxLayer("NearHills (параллакс 0.5)", parent, 0.5f);
+        for (float x = -15f; x < cols + 15f; x += 5 + random.Next(4))
+        {
+            float size = 5 + random.Next(4);
+            AddSprite("Hill", near, circle, NearHillColor, new Vector2(x, groundTop - 1.5f), new Vector2(size, size * 0.8f), -20);
+        }
+
+        Transform clouds = CreateParallaxLayer("Clouds (параллакс 0.9)", parent, 0.9f);
+        CreateClouds(clouds, cols + 20, 7 + cols, -10f);
+    }
+
+    private static Transform CreateParallaxLayer(string name, Transform parent, float factor)
+    {
+        Transform layer = CreateChild(name, parent);
+        Parallax parallax = layer.gameObject.AddComponent<Parallax>();
+        SetFloat(parallax, "factor", factor);
+        return layer;
     }
 
     private static void CreateClouds(Transform parent, int width, int seed, float startX = 2f)
@@ -817,6 +895,7 @@ public static class PlatformerBuilder
     private static void SetRef(Object target, string field, Object value) => Modify(target, field, p => p.objectReferenceValue = value);
     private static void SetString(Object target, string field, string value) => Modify(target, field, p => p.stringValue = value);
     private static void SetBool(Object target, string field, bool value) => Modify(target, field, p => p.boolValue = value);
+    private static void SetFloat(Object target, string field, float value) => Modify(target, field, p => p.floatValue = value);
     private static void SetVector2(Object target, string field, Vector2 value) => Modify(target, field, p => p.vector2Value = value);
 
     private static void Modify(Object target, string field, Action<SerializedProperty> apply)

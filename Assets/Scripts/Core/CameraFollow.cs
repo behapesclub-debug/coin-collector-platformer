@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Камера плавно следует за игроком и не вылезает за границы уровня.
-/// Вешается на Main Camera.
+/// Умеет трястись (Shake), когда игрок получает урон. Вешается на Main Camera.
 /// </summary>
 [RequireComponent(typeof(Camera))]
 public class CameraFollow : MonoBehaviour
@@ -19,24 +19,46 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private Vector2 maxBounds = new Vector2(100f, 4f);
 
     private Camera cam;
+    private Vector3 followPosition;   // где камера была бы без тряски
     private Vector3 currentVelocity;
+    private float shakeTimeLeft;
+    private float shakeStrength;
 
     private void Awake()
     {
         cam = GetComponent<Camera>();
+        followPosition = transform.position;
     }
 
     private void Start()
     {
-        if (target != null) transform.position = GetDesiredPosition(); // сразу встаём на место
+        if (target != null) followPosition = GetDesiredPosition(); // сразу встаём на место
+        transform.position = followPosition;
     }
 
     // LateUpdate вызывается ПОСЛЕ всех Update — игрок уже сдвинулся,
     // и камера не будет "дёргаться".
     private void LateUpdate()
     {
-        if (target == null) return;
-        transform.position = Vector3.SmoothDamp(transform.position, GetDesiredPosition(), ref currentVelocity, smoothTime);
+        if (target != null)
+        {
+            followPosition = Vector3.SmoothDamp(followPosition, GetDesiredPosition(), ref currentVelocity, smoothTime);
+        }
+
+        Vector3 shake = Vector3.zero;
+        if (shakeTimeLeft > 0f)
+        {
+            shakeTimeLeft -= Time.deltaTime;
+            shake = (Vector3)(Random.insideUnitCircle * shakeStrength);
+        }
+        transform.position = followPosition + shake;
+    }
+
+    /// <summary>Потрясти камеру: duration секунд с силой strength (в клетках).</summary>
+    public void Shake(float duration, float strength)
+    {
+        shakeTimeLeft = duration;
+        shakeStrength = strength;
     }
 
     private Vector3 GetDesiredPosition()

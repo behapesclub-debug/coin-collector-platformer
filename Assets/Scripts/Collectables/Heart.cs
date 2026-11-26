@@ -9,6 +9,7 @@ public class Heart : Collectable
 
     public override void Collect(PlayerController player)
     {
+        SoundFX.Play(Sfx.Heart);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.AddLife(lives);

@@ -301,6 +301,7 @@ MonoBehaviour:
   visual: {fileID: 8982054518993637789}
   bobHeight: 0.1
   bobSpeed: 3
+  popDuration: 0.25
   lives: 1
 --- !u!1 &9135979143962974588
 GameObject:

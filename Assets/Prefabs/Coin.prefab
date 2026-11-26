@@ -176,6 +176,7 @@ MonoBehaviour:
   visual: {fileID: 5363355244919442811}
   bobHeight: 0.1
   bobSpeed: 3
+  popDuration: 0.25
   value: 1
   spinSpeed: 4
 --- !u!1 &6764810108853922008

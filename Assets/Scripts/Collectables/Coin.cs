@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Монета. Наследуется от Collectable, поэтому уже умеет
-/// "подбираться" и покачиваться. Сама добавляет только:
+/// "подбираться", покачиваться и лопаться. Сама добавляет только:
 ///   - сколько монет она даёт (value);
 ///   - эффект вращения.
 /// </summary>
@@ -12,9 +12,9 @@ public class Coin : Collectable
     [SerializeField] private float spinSpeed = 4f;
 
     // "override" — дополняем метод родителя.
-    protected override void Update()
+    protected override void AnimateIdle()
     {
-        base.Update(); // сначала выполняем покачивание из Collectable
+        base.AnimateIdle(); // сначала выполняем покачивание из Collectable
 
         if (visual != null)
         {
@@ -26,6 +26,7 @@ public class Coin : Collectable
 
     public override void Collect(PlayerController player)
     {
+        SoundFX.Play(Sfx.Coin);
         if (GameManager.Instance != null)
         {
             GameManager.Instance.AddCoin(value);

@@ -23,6 +23,7 @@ public class Checkpoint : MonoBehaviour
         if (!other.TryGetComponent(out PlayerController _)) return;
 
         isActivated = true;
+        SoundFX.Play(Sfx.Checkpoint);
         if (flag != null) flag.color = activeColor;
         if (GameManager.Instance != null) GameManager.Instance.SetCheckpoint(transform.position);
     }

@@ -2,8 +2,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// "Мозг" уровня. Хранит монеты и жизни, решает, что делать,
-/// когда игрок получил урон, дошёл до финиша или проиграл.
+/// "Мозг" уровня. Хранит монеты, жизни и время, решает, что делать,
+/// когда игрок получил урон, дошёл до финиша, проиграл или нажал паузу.
 ///
 /// Остальные скрипты не меняют жизни/монеты сами — они просят GameManager:
 ///   Coin      → GameManager.Instance.AddCoin(1)
@@ -39,8 +39,17 @@ public class GameManager : MonoBehaviour
     private int coins;
     private int lives;
     private int coinsOnLevel;
+    private float levelTime;
     private Vector3 respawnPoint;
     private bool levelEnded;
+    private bool isPaused;
+    private CameraFollow cameraFollow;
+
+    // Только для чтения снаружи: get публичный, менять может лишь сам GameManager.
+    public int Coins => coins;
+    public int Lives => lives;
+    public bool IsPaused => isPaused;
+    public bool LevelEnded => levelEnded;
 
     private void Awake()
     {
@@ -58,6 +67,7 @@ public class GameManager : MonoBehaviour
         lives = GameProgress.Lives > 0 ? GameProgress.Lives : startingLives;
         coinsOnLevel = FindObjectsByType<Coin>(FindObjectsSortMode.None).Length;
         respawnPoint = player.transform.position; // первая точка возрождения — старт
+        if (Camera.main != null) cameraFollow = Camera.main.GetComponent<CameraFollow>();
 
         ui.HidePanels();
         ui.SetLevelName(levelName);
@@ -66,9 +76,16 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.Escape) && !levelEnded)
         {
-            GoToMainMenu();
+            SetPaused(!isPaused);
+        }
+
+        // Пока идёт игра — считаем время. На паузе timeScale = 0, и deltaTime тоже 0.
+        if (!levelEnded)
+        {
+            levelTime += Time.deltaTime;
+            ui.SetTimer(levelTime);
         }
     }
 
@@ -99,6 +116,8 @@ public class GameManager : MonoBehaviour
 
         lives--;
         RefreshUI();
+        SoundFX.Play(Sfx.Hurt);
+        if (cameraFollow != null) cameraFollow.Shake(0.25f, 0.3f);
 
         if (lives <= 0)
         {
@@ -119,18 +138,53 @@ public class GameManager : MonoBehaviour
         GameProgress.TotalCoins += coins;
         GameProgress.Lives = lives;
 
+        bool newRecord = SaveRecords(out float bestTime, out int bestCoins);
+
+        SoundFX.Play(Sfx.Win);
         player.SetControlsEnabled(false);
         bool hasNextLevel = !string.IsNullOrEmpty(nextLevelScene);
-        ui.ShowWin(hasNextLevel, coins, coinsOnLevel, GameProgress.TotalCoins);
+        ui.ShowWin(hasNextLevel, coins, coinsOnLevel, GameProgress.TotalCoins, levelTime, bestTime, bestCoins, newRecord);
         Time.timeScale = 0f; // "замораживаем" игру
     }
 
     private void GameOver()
     {
         levelEnded = true;
+        SoundFX.Play(Sfx.GameOver);
         player.SetControlsEnabled(false);
         ui.ShowGameOver(coins, coinsOnLevel);
         Time.timeScale = 0f;
+    }
+
+    /// <summary>
+    /// Рекорды уровня. PlayerPrefs — маленькое хранилище "ключ → значение",
+    /// которое Unity сохраняет на диск. Оно переживает даже перезапуск игры.
+    /// Возвращает true, если поставлен новый рекорд.
+    /// </summary>
+    private bool SaveRecords(out float bestTime, out int bestCoins)
+    {
+        string scene = SceneManager.GetActiveScene().name;
+        string timeKey = "BestTime_" + scene;
+        string coinsKey = "BestCoins_" + scene;
+
+        bestTime = PlayerPrefs.GetFloat(timeKey, float.MaxValue);
+        bestCoins = PlayerPrefs.GetInt(coinsKey, 0);
+        bool newRecord = false;
+
+        if (levelTime < bestTime)
+        {
+            bestTime = levelTime;
+            PlayerPrefs.SetFloat(timeKey, bestTime);
+            newRecord = true;
+        }
+        if (coins > bestCoins)
+        {
+            bestCoins = coins;
+            PlayerPrefs.SetInt(coinsKey, bestCoins);
+            newRecord = true;
+        }
+        PlayerPrefs.Save();
+        return newRecord;
     }
 
     private void RefreshUI()
@@ -139,6 +193,21 @@ public class GameManager : MonoBehaviour
     }
 
     // --- Вызывают кнопки UI (подключены в Inspector → Button → On Click) ---
+
+    public void SetPaused(bool paused)
+    {
+        if (levelEnded) return; // после победы/проигрыша пауза не нужна — игра уже остановлена
+        isPaused = paused;
+        Time.timeScale = paused ? 0f : 1f;
+        player.SetControlsEnabled(!paused);
+        ui.ShowPause(paused);
+    }
+
+    /// <summary>Кнопка "Продолжить" на экране паузы.</summary>
+    public void Resume()
+    {
+        SetPaused(false);
+    }
 
     /// <summary>"Начать заново": перезапустить текущий уровень с полными жизнями.</summary>
     public void RestartLevel()
