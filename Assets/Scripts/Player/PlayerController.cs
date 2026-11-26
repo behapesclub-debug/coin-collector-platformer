@@ -17,7 +17,7 @@ public class PlayerController : MonoBehaviour
     [Header("Движение")]
     [SerializeField] private float moveSpeed = 7f;
     [Tooltip("Вертикальная скорость в момент прыжка")]
-    [SerializeField] private float jumpForce = 14f;
+    [SerializeField] private float jumpForce = 15f;
 
     [Header("Части персонажа")]
     [Tooltip("Объект с картинкой — его разворачиваем влево/вправо")]
