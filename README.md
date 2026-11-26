@@ -7,7 +7,7 @@
 
 ## 1. Как открыть проект
 
-1. Установи **Unity Hub** и **Unity 6 LTS** (6000.0.x). Подойдёт и Unity 2022.3 LTS.
+1. Установи **Unity Hub** и **Unity 6.3 LTS** (6000.3.x). Подойдёт и Unity 2022.3 LTS.
 2. Скачай проект:
    ```
    git clone https://github.com/behapesclub-debug/coin-collector-platformer.git
