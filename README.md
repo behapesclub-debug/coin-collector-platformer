@@ -10,7 +10,7 @@
 1. Установи **Unity Hub** и **Unity 6 LTS** (6000.0.x). Подойдёт и Unity 2022.3 LTS.
 2. Скачай проект:
    ```
-   git clone https://github.com/<твой-логин>/coin-collector-platformer.git
+   git clone https://github.com/behapesclub-debug/coin-collector-platformer.git
    ```
 3. Unity Hub → **Add → Add project from disk** → выбери папку `coin-collector-platformer`.
    Если Hub пишет, что такой версии нет, просто выбери ту версию Unity, которая у тебя установлена.
@@ -211,7 +211,7 @@ Rigidbody2D типа **Kinematic**: гравитация не действует
 
 **Первый раз на новом компьютере:**
 ```
-git clone https://github.com/<твой-логин>/coin-collector-platformer.git
+git clone https://github.com/behapesclub-debug/coin-collector-platformer.git
 ```
 
 **Каждый раз, когда садишься работать:** скачай свежие изменения
