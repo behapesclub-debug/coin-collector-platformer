@@ -474,6 +474,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   moveSpeed: 7
-  jumpForce: 14
+  jumpForce: 15
   visual: {fileID: 7488420200082824577}
   animator: {fileID: 6223427241161148243}
