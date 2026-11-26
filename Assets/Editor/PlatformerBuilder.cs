@@ -92,6 +92,7 @@ public static class PlatformerBuilder
         }
 
         EditorSceneManager.OpenScene(ScenePath("MainMenu"));
+        if (Application.isBatchMode) return; // в фоновом режиме окна показывать нельзя
         EditorUtility.DisplayDialog("Собиратель монет",
             "Готово! Открыта сцена MainMenu.\nНажми ▶ Play вверху редактора, чтобы играть.", "Ура");
     }
@@ -833,22 +834,35 @@ public static class PlatformerBuilder
 }
 
 /// <summary>
-/// При первом открытии проекта сцен ещё нет — предлагаем собрать их автоматически.
+/// Помощник при открытии проекта:
+///   - если сцены уже есть, а открыта пустая "Untitled", открывает главное меню;
+///   - если сцен ещё нет, предлагает собрать их автоматически.
 /// [InitializeOnLoad] = этот код выполняется каждый раз, когда Unity загружает скрипты.
 /// </summary>
 [InitializeOnLoad]
 internal static class PlatformerAutoBuild
 {
     private const string CheckedKey = "Platformer.AutoBuildChecked";
+    private const string MainMenuPath = "Assets/Scenes/MainMenu.unity";
 
     static PlatformerAutoBuild()
     {
+        if (Application.isBatchMode) return;
         if (SessionState.GetBool(CheckedKey, false)) return;
         SessionState.SetBool(CheckedKey, true);
 
         EditorApplication.delayCall += () =>
         {
-            if (File.Exists("Assets/Scenes/MainMenu.unity")) return;
+            if (File.Exists(MainMenuPath))
+            {
+                var active = EditorSceneManager.GetActiveScene();
+                bool isUntitled = string.IsNullOrEmpty(active.path);
+                if (isUntitled && !active.isDirty && !EditorApplication.isPlayingOrWillChangePlaymode)
+                {
+                    EditorSceneManager.OpenScene(MainMenuPath);
+                }
+                return;
+            }
             if (EditorUtility.DisplayDialog("Собиратель монет",
                     "Сцены игры ещё не созданы.\nСобрать их сейчас? (это займёт несколько секунд)",
                     "Да, собрать", "Позже"))
