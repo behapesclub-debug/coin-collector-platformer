@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class MainMenu : MonoBehaviour
 {
     [SerializeField] private string firstLevelScene = "Level1";
-    [SerializeField] private string[] levelScenes = { "Level1", "Level2" };
+    [SerializeField] private string[] levelScenes = { "Level1", "Level2", "Level3" };
     [SerializeField] private Text recordsText;
 
     private void Start()

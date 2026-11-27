@@ -1,39 +1,27 @@
-using System.Collections;
 using UnityEngine;
 
 /// <summary>
 /// Враг-слизень. Ходит туда-сюда и разворачивается у стены или края обрыва.
-///   - Коснулся игрока сбоку → игрок теряет жизнь.
-///   - Игрок прыгнул сверху  → враг расплющен, а игрок отскакивает вверх.
-///
-/// Здесь используется OnCollisionEnter2D: у врага и у игрока "твёрдые"
-/// коллайдеры, и Unity сообщает о столкновении.
+/// Что происходит при касании игрока (урон, прыжок сверху, звезда),
+/// описано в базовом классе EnemyBase — здесь только ходьба.
 /// </summary>
-[RequireComponent(typeof(Rigidbody2D))]
-public class Enemy : MonoBehaviour
+public class Enemy : EnemyBase
 {
     [SerializeField] private float speed = 2f;
-    [Tooltip("С какой скоростью подбрасывает игрока после прыжка на врага")]
-    [SerializeField] private float bounceForce = 12f;
-    [SerializeField] private Transform visual;
 
-    private Rigidbody2D rb;
-    private Collider2D bodyCollider;
     private ContactFilter2D solidFilter;
     private readonly RaycastHit2D[] hits = new RaycastHit2D[4];
     private float direction = -1f; // -1 влево, 1 вправо
-    private bool isDead;
 
-    private void Awake()
+    protected override void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
-        bodyCollider = GetComponent<Collider2D>();
+        base.Awake(); // сначала то, что делает EnemyBase (находит Rigidbody2D и коллайдер)
         solidFilter.useTriggers = false; // лучи не замечают монеты, шипы и т.п.
     }
 
     private void FixedUpdate()
     {
-        if (isDead) return;
+        if (IsDead) return;
 
         // Проверяем, что впереди: стена или обрыв → разворот.
         if (WallAhead() || !GroundAhead()) direction = -direction;
@@ -72,63 +60,5 @@ public class Enemy : MonoBehaviour
             return true;
         }
         return false;
-    }
-
-    private void OnCollisionEnter2D(Collision2D collision)
-    {
-        if (isDead) return;
-        if (!collision.gameObject.TryGetComponent(out PlayerController player)) return;
-
-        // Игрок заметно выше центра врага → значит, прыгнул сверху.
-        bool fromAbove = player.transform.position.y > transform.position.y + 0.4f;
-        if (fromAbove)
-        {
-            player.Bounce(bounceForce);
-            Die();
-        }
-        else if (GameManager.Instance != null)
-        {
-            GameManager.Instance.PlayerHit();
-        }
-    }
-
-    private void Die()
-    {
-        isDead = true;
-        SoundFX.Play(Sfx.Stomp);
-        bodyCollider.enabled = false;
-        rb.bodyType = RigidbodyType2D.Kinematic;
-        SetVelocity(Vector2.zero);
-        StartCoroutine(SquashAndDisappear());
-    }
-
-    private IEnumerator SquashAndDisappear()
-    {
-        if (visual != null)
-        {
-            visual.localScale = new Vector3(1.3f, 0.3f, 1f);
-            visual.localPosition = new Vector3(0f, -0.2f, 0f);
-        }
-        yield return new WaitForSeconds(0.4f);
-        Destroy(gameObject);
-    }
-
-    // linearVelocity в Unity 6, velocity в старых версиях.
-    private Vector2 GetVelocity()
-    {
-#if UNITY_6000_0_OR_NEWER
-        return rb.linearVelocity;
-#else
-        return rb.velocity;
-#endif
-    }
-
-    private void SetVelocity(Vector2 value)
-    {
-#if UNITY_6000_0_OR_NEWER
-        rb.linearVelocity = value;
-#else
-        rb.velocity = value;
-#endif
     }
 }

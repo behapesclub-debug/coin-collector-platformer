@@ -86,6 +86,7 @@ public class GameManager : MonoBehaviour
         {
             levelTime += Time.deltaTime;
             ui.SetTimer(levelTime);
+            ui.SetStarTime(player.StarTimeLeft);
         }
     }
 

@@ -42,13 +42,26 @@ public static class PlatformerBuilder
     private static readonly Color EnemyColor = new Color(0.55f, 0.30f, 0.75f);
     private static readonly Color FarHillColor = new Color(0.62f, 0.82f, 0.78f);
     private static readonly Color NearHillColor = new Color(0.47f, 0.74f, 0.45f);
+    private static readonly Color CrumbleColor = new Color(0.80f, 0.62f, 0.40f);
+    private static readonly Color CrackColor = new Color(0.45f, 0.30f, 0.18f);
+    private static readonly Color BatColor = new Color(0.30f, 0.22f, 0.35f);
+    private static readonly Color SpringBaseColor = new Color(0.30f, 0.30f, 0.35f);
+    private static readonly Color SpringColor = new Color(0.95f, 0.25f, 0.35f);
+    private static readonly Color StarColor = new Color(1.00f, 0.88f, 0.20f);
 
-    private static Sprite square, rounded, circle, triangle;
+    /// <summary>
+    /// Версия сборщика. Увеличь её, когда меняешь сцены/префабы в этом файле —
+    /// тогда при открытии проекта Unity предложит пересобрать игру.
+    /// </summary>
+    public const int BuildVersion = 3;
+    public const string BuildVersionPath = "Assets/Scenes/BuildVersion.txt";
+
+    private static Sprite square, rounded, circle, triangle, star;
     private static Font font;
 
     private class Prefabs
     {
-        public GameObject Player, Coin, Heart, Spike, Checkpoint, Finish, Enemy;
+        public GameObject Player, Coin, Heart, Spike, Checkpoint, Finish, Enemy, Bat, JumpPad, Star;
     }
 
     [MenuItem("Platformer/Собрать игру (сцены, префабы, анимации)", priority = 0)]
@@ -77,7 +90,8 @@ public static class PlatformerBuilder
             EditorUtility.DisplayProgressBar("Собиратель монет", "Создаю сцены...", 0.6f);
             BuildMainMenu(prefabs);
             BuildLevel("Level1", "Уровень 1", LevelMaps.Level1, "Level2", prefabs);
-            BuildLevel("Level2", "Уровень 2", LevelMaps.Level2, "", prefabs);
+            BuildLevel("Level2", "Уровень 2", LevelMaps.Level2, "Level3", prefabs);
+            BuildLevel("Level3", "Уровень 3", LevelMaps.Level3, "", prefabs);
 
             // Сцены должны быть в Build Settings, иначе SceneManager.LoadScene их не найдёт.
             EditorBuildSettings.scenes = new[]
@@ -85,7 +99,12 @@ public static class PlatformerBuilder
                 new EditorBuildSettingsScene(ScenePath("MainMenu"), true),
                 new EditorBuildSettingsScene(ScenePath("Level1"), true),
                 new EditorBuildSettingsScene(ScenePath("Level2"), true),
+                new EditorBuildSettingsScene(ScenePath("Level3"), true),
             };
+
+            // Запоминаем, какой версией сборщика собраны сцены.
+            File.WriteAllText(BuildVersionPath, BuildVersion.ToString());
+            AssetDatabase.ImportAsset(BuildVersionPath);
 
             AssetDatabase.SaveAssets();
         }
@@ -122,6 +141,15 @@ public static class PlatformerBuilder
             float dx = Mathf.Max(Mathf.Abs(u - 0.5f) - (0.5f - r), 0f);
             float dy = Mathf.Max(Mathf.Abs(v - 0.5f) - (0.5f - r), 0f);
             return (r - Mathf.Sqrt(dx * dx + dy * dy)) * edge;
+        });
+        star = MakeSprite("Star", (u, v) =>
+        {
+            // Пятиконечная звезда: радиус края "пульсирует" 5 раз за оборот.
+            float x = u - 0.5f, y = v - 0.5f;
+            float angle = Mathf.Atan2(y, x) - Mathf.PI / 2f; // один луч смотрит вверх
+            float wave = Mathf.Pow((Mathf.Cos(5f * angle) + 1f) / 2f, 2f);
+            float radius = Mathf.Lerp(0.2f, 0.48f, wave);
+            return (radius - Mathf.Sqrt(x * x + y * y)) * edge;
         });
     }
 
@@ -301,7 +329,78 @@ public static class PlatformerBuilder
             Checkpoint = CreateCheckpointPrefab(),
             Finish = CreateFinishPrefab(),
             Enemy = CreateEnemyPrefab(noFriction),
+            Bat = CreateBatPrefab(),
+            JumpPad = CreateJumpPadPrefab(),
+            Star = CreateStarPrefab(),
         };
+    }
+
+    private static GameObject CreateBatPrefab()
+    {
+        var root = new GameObject("Bat");
+
+        // Kinematic: гравитации нет, летучую мышь двигает скрипт.
+        var rb = root.AddComponent<Rigidbody2D>();
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+        var collider = root.AddComponent<BoxCollider2D>();
+        collider.size = new Vector2(0.6f, 0.45f);
+
+        Transform visual = CreateChild("Visual", root.transform);
+        Transform leftWing = CreateChild("LeftWing", visual);
+        leftWing.localPosition = new Vector3(-0.2f, 0.05f, 0f);
+        Transform rightWing = CreateChild("RightWing", visual);
+        rightWing.localPosition = new Vector3(0.2f, 0.05f, 0f);
+        // Крыло — треугольник, повёрнутый острым концом наружу. Крыло машет вокруг своего "плеча".
+        SpriteRenderer lw = AddSprite("Wing", leftWing, triangle, BatColor, new Vector2(-0.25f, 0f), new Vector2(0.4f, 0.5f), 7);
+        lw.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        SpriteRenderer rw = AddSprite("Wing", rightWing, triangle, BatColor, new Vector2(0.25f, 0f), new Vector2(0.4f, 0.5f), 7);
+        rw.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
+        AddSprite("Body", visual, circle, BatColor, Vector2.zero, new Vector2(0.55f, 0.5f), 8);
+        AddSprite("Eye", visual, circle, new Color(1f, 0.85f, 0.2f), new Vector2(0.12f, 0.06f), new Vector2(0.14f, 0.14f), 9);
+
+        var bat = root.AddComponent<FlyingEnemy>();
+        SetRef(bat, "visual", visual);
+        SetRef(bat, "leftWing", leftWing);
+        SetRef(bat, "rightWing", rightWing);
+        return SavePrefab(root, "Bat");
+    }
+
+    private static GameObject CreateJumpPadPrefab()
+    {
+        var root = new GameObject("JumpPad");
+        var collider = root.AddComponent<BoxCollider2D>();
+        collider.isTrigger = true;
+        collider.size = new Vector2(0.8f, 0.45f);
+        collider.offset = new Vector2(0f, -0.28f);
+
+        AddSprite("Base", root.transform, square, SpringBaseColor, new Vector2(0f, -0.44f), new Vector2(0.9f, 0.12f), 4);
+        // Spring сжимается скриптом. Его "ноль" — внизу, поэтому сжатие идёт к земле.
+        Transform spring = CreateChild("Spring", root.transform);
+        spring.localPosition = new Vector3(0f, -0.4f, 0f);
+        AddSprite("Coil", spring, square, new Color(0.75f, 0.75f, 0.8f), new Vector2(0f, 0.12f), new Vector2(0.18f, 0.24f), 4);
+        AddSprite("Top", spring, rounded, SpringColor, new Vector2(0f, 0.28f), new Vector2(0.8f, 0.14f), 5);
+
+        var pad = root.AddComponent<JumpPad>();
+        SetRef(pad, "spring", spring);
+        return SavePrefab(root, "JumpPad");
+    }
+
+    private static GameObject CreateStarPrefab()
+    {
+        var root = new GameObject("Star");
+        var collider = root.AddComponent<CircleCollider2D>();
+        collider.isTrigger = true;
+        collider.radius = 0.35f;
+
+        Transform visual = CreateChild("Visual", root.transform);
+        AddSprite("Glow", visual, circle, new Color(1f, 1f, 0.6f, 0.35f), Vector2.zero, new Vector2(1f, 1f), 4);
+        AddSprite("Sprite", visual, star, StarColor, Vector2.zero, new Vector2(0.8f, 0.8f), 5);
+
+        var starItem = root.AddComponent<Star>();
+        SetRef(starItem, "visual", visual);
+        return SavePrefab(root, "Star");
     }
 
     private static GameObject CreateEnemyPrefab(PhysicsMaterial2D noFriction)
@@ -485,6 +584,7 @@ public static class PlatformerBuilder
             ForEachRun(cols, c => At(row, c) == '#' && At(row - 1, c) != '#', (start, end) => CreateGrass(ground, start, end, row));
             ForEachRun(cols, c => At(row, c) == '=', (start, end) => CreateMovingPlatform(platforms, start, end, row, new Vector2(4f, 0f)));
             ForEachRun(cols, c => At(row, c) == '~', (start, end) => CreateMovingPlatform(platforms, start, end, row, new Vector2(0f, 4f)));
+            ForEachRun(cols, c => At(row, c) == 'X', (start, end) => CreateCrumblingPlatform(platforms, start, end, row));
         }
 
         // 2) Одиночные объекты.
@@ -503,6 +603,9 @@ public static class PlatformerBuilder
                     case 'F': Place(prefabs.Finish, items, pos); break;
                     case '^': Place(prefabs.Spike, hazards, pos); break;
                     case 'E': Place(prefabs.Enemy, hazards, pos); break;
+                    case 'B': Place(prefabs.Bat, hazards, pos); break;
+                    case 'J': Place(prefabs.JumpPad, items, pos); break;
+                    case 'S': Place(prefabs.Star, items, pos); break;
                 }
             }
         }
@@ -571,7 +674,7 @@ public static class PlatformerBuilder
             new Vector2(0f, 170f), new Vector2(1200f, 70f), Color.white);
         CreateButton(ct, "PlayButton", "Играть", new Vector2(0f, 20f), menu.Play);
         CreateButton(ct, "QuitButton", "Выход", new Vector2(0f, -100f), menu.Quit);
-        CreateText(ct, "Controls", "A/D или ←/→ — бег     Пробел / W — прыжок (держи — выше)     Esc — пауза", 30,
+        CreateText(ct, "Controls", "A/D или ←/→ — бег     Пробел / W — прыжок (держи — выше)     Shift — рывок     Esc — пауза", 30,
             TextAnchor.MiddleCenter, new Vector2(0.5f, 0f), new Vector2(0f, 40f), new Vector2(1800f, 50f), Color.white);
 
         EditorSceneManager.SaveScene(scene, ScenePath("MainMenu"));
@@ -592,7 +695,9 @@ public static class PlatformerBuilder
             new Vector2(0f, -30f), new Vector2(800f, 70f), Color.white);
         Text timer = CreateText(ct, "TimerText", "Время: 0:00.0", 44, TextAnchor.UpperRight, new Vector2(1f, 1f),
             new Vector2(-40f, -30f), new Vector2(600f, 70f), Color.white);
-        CreateText(ct, "HintText", "A/D — бег   Пробел — прыжок   Esc — пауза", 28, TextAnchor.LowerCenter,
+        Text starText = CreateText(ct, "StarText", "", 44, TextAnchor.UpperRight, new Vector2(1f, 1f),
+            new Vector2(-40f, -95f), new Vector2(700f, 70f), StarColor);
+        CreateText(ct, "HintText", "A/D — бег   Пробел — прыжок   Shift — рывок   Esc — пауза", 28, TextAnchor.LowerCenter,
             new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(1600f, 50f), new Color(1f, 1f, 1f, 0.8f));
 
         // Экран паузы.
@@ -633,6 +738,7 @@ public static class PlatformerBuilder
         SetRef(ui, "nextLevelButton", next.gameObject);
         SetRef(ui, "playAgainButton", again.gameObject);
         SetRef(ui, "timerText", timer);
+        SetRef(ui, "starText", starText);
         SetRef(ui, "pausePanel", pause);
 
         pause.SetActive(false);
@@ -693,6 +799,33 @@ public static class PlatformerBuilder
 
         MovingPlatform platform = go.AddComponent<MovingPlatform>();
         SetVector2(platform, "moveOffset", offset);
+    }
+
+    private static void CreateCrumblingPlatform(Transform parent, int start, int end, int row)
+    {
+        float width = end - start + 1;
+        var go = new GameObject("CrumblingPlatform");
+        go.transform.SetParent(parent, false);
+        go.transform.position = new Vector3((start + end) / 2f, -row, 0f);
+
+        var collider = go.AddComponent<BoxCollider2D>();
+        collider.size = new Vector2(width, 1f);
+
+        // Картинка — отдельный дочерний объект: её трясёт и роняет скрипт, а коллайдер стоит на месте.
+        Transform visual = CreateChild("Visual", go.transform);
+        AddSprite("Block", visual, rounded, CrumbleColor, Vector2.zero, new Vector2(width, 1f), 1);
+        for (int i = 0; i < width; i++)
+        {
+            // Трещины, чтобы было видно: эта платформа ненадёжная.
+            float x = -width / 2f + 0.5f + i;
+            SpriteRenderer crack = AddSprite("Crack", visual, square, CrackColor, new Vector2(x - 0.1f, 0.05f), new Vector2(0.07f, 0.55f), 2);
+            crack.transform.localRotation = Quaternion.Euler(0f, 0f, 25f);
+            crack = AddSprite("Crack", visual, square, CrackColor, new Vector2(x + 0.15f, -0.15f), new Vector2(0.06f, 0.35f), 2);
+            crack.transform.localRotation = Quaternion.Euler(0f, 0f, -30f);
+        }
+
+        CrumblingPlatform platform = go.AddComponent<CrumblingPlatform>();
+        SetRef(platform, "visual", visual);
     }
 
     private static void CreateWall(Transform parent, float x, int rows)
@@ -915,7 +1048,9 @@ public static class PlatformerBuilder
 /// <summary>
 /// Помощник при открытии проекта:
 ///   - если сцены уже есть, а открыта пустая "Untitled", открывает главное меню;
-///   - если сцен ещё нет, предлагает собрать их автоматически.
+///   - если сцен ещё нет, предлагает собрать их автоматически;
+///   - если сцены собраны старой версией сборщика (в коде появились новые объекты
+///     или уровни), предлагает пересобрать.
 /// [InitializeOnLoad] = этот код выполняется каждый раз, когда Unity загружает скрипты.
 /// </summary>
 [InitializeOnLoad]
@@ -934,6 +1069,19 @@ internal static class PlatformerAutoBuild
         {
             if (File.Exists(MainMenuPath))
             {
+                if (BuiltVersion() < PlatformerBuilder.BuildVersion)
+                {
+                    if (EditorUtility.DisplayDialog("Собиратель монет",
+                            "Игра обновилась: появились новые объекты и уровень 3.\n" +
+                            "Пересобрать сцены сейчас?\n\n" +
+                            "Ручные правки в сценах пропадут (карты уровней в LevelMaps.cs останутся).",
+                            "Да, пересобрать", "Позже"))
+                    {
+                        PlatformerBuilder.BuildAll();
+                    }
+                    return;
+                }
+
                 var active = EditorSceneManager.GetActiveScene();
                 bool isUntitled = string.IsNullOrEmpty(active.path);
                 if (isUntitled && !active.isDirty && !EditorApplication.isPlayingOrWillChangePlaymode)
@@ -949,5 +1097,12 @@ internal static class PlatformerAutoBuild
                 PlatformerBuilder.BuildAll();
             }
         };
+    }
+
+    // Версия, которой собраны текущие сцены. Нет файла — значит, очень старая сборка (0).
+    private static int BuiltVersion()
+    {
+        if (!File.Exists(PlatformerBuilder.BuildVersionPath)) return 0;
+        return int.TryParse(File.ReadAllText(PlatformerBuilder.BuildVersionPath).Trim(), out int version) ? version : 0;
     }
 }

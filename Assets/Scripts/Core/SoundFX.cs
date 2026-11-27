@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>Все звуки игры.</summary>
-public enum Sfx { Coin, Jump, Hurt, Checkpoint, Win, GameOver, Stomp, Heart }
+public enum Sfx { Coin, Jump, Hurt, Checkpoint, Win, GameOver, Stomp, Heart, Dash, Spring, PowerUp, Crumble }
 
 /// <summary>
 /// Звуковые эффекты в стиле старых приставок. Их не надо скачивать:
@@ -58,6 +58,10 @@ public static class SoundFX
             case Sfx.Heart:      return Notes("Heart", Wave.Triangle, 0.08f, 659f, 880f, 1175f);
             case Sfx.Win:        return Notes("Win", Wave.Square, 0.12f, 523f, 659f, 784f, 1047f, 784f, 1047f);
             case Sfx.GameOver:   return Notes("GameOver", Wave.Triangle, 0.22f, 392f, 330f, 262f, 196f);
+            case Sfx.Dash:       return Sweep("Dash", Wave.Noise, 0.12f, 1400f, 300f);
+            case Sfx.Spring:     return Sweep("Spring", Wave.Square, 0.25f, 180f, 900f);
+            case Sfx.PowerUp:    return Notes("PowerUp", Wave.Square, 0.06f, 523f, 659f, 784f, 1047f, 1319f, 1568f);
+            case Sfx.Crumble:    return Sweep("Crumble", Wave.Noise, 0.3f, 500f, 60f);
             default:             return Notes("Beep", Wave.Square, 0.05f, 660f);
         }
     }

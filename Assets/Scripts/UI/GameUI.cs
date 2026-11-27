@@ -13,6 +13,8 @@ public class GameUI : MonoBehaviour
     [SerializeField] private Text livesText;
     [SerializeField] private Text levelText;
     [SerializeField] private Text timerText;
+    [Tooltip("Сколько ещё действует звезда (пусто, если не действует)")]
+    [SerializeField] private Text starText;
 
     [Header("Экран паузы")]
     [SerializeField] private GameObject pausePanel;
@@ -42,6 +44,12 @@ public class GameUI : MonoBehaviour
     public void SetTimer(float seconds)
     {
         if (timerText != null) timerText.text = "Время: " + FormatTime(seconds);
+    }
+
+    public void SetStarTime(float secondsLeft)
+    {
+        if (starText == null) return;
+        starText.text = secondsLeft > 0f ? $"★ Неуязвимость: {secondsLeft:0.0}" : "";
     }
 
     public void HidePanels()
